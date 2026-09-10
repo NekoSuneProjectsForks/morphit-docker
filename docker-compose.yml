@@ -1,0 +1,49 @@
+name: morphit
+
+services:
+  morphit-web:
+    image: ${MORPHIT_IMAGE:-ghcr.io/nekosuneprojectsforks/morphit}:${MORPHIT_TAG:-latest}
+    container_name: ${MORPHIT_CONTAINER_NAME:-morphit-web}
+    command: ["web"]
+    restart: unless-stopped
+    pull_policy: always
+
+    # The web UI is intentionally NOT published on a host port. Nginx Proxy
+    # Manager reaches it over the shared Docker network below.
+    expose:
+      - "8080"
+
+    networks:
+      npm_proxy:
+        aliases:
+          - morphit
+
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=64m,mode=1777
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8080/').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+    stop_grace_period: 10s
+
+networks:
+  npm_proxy:
+    # Point this at a Docker network that Nginx Proxy Manager is already using.
+    # Example values: npm_default, nginx-proxy-manager_default, proxy
+    external: true
+    name: ${NPM_NETWORK:-npm_proxy}
