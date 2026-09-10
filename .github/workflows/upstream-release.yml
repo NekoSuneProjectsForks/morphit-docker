@@ -66,6 +66,7 @@ jobs:
             echo "- Latest upstream release: \`$latest\`"
             echo "- Last successfully built release: \`${previous:-none}\`"
             echo "- Build required: \`$changed\`"
+            echo "- Source: official Agorise Forgejo release"
           } >> "$GITHUB_STEP_SUMMARY"
 
   build:
@@ -80,15 +81,6 @@ jobs:
     steps:
       - name: Checkout wrapper repository
         uses: actions/checkout@v4
-
-      - name: Download and verify upstream release
-        env:
-          MORPHIT_TAG: ${{ needs.check.outputs.tag }}
-        run: |
-          set -euo pipefail
-          python3 scripts/fetch-release.py --tag "$MORPHIT_TAG" --output upstream
-          test -f upstream/package.json
-          test -f upstream/package-lock.json
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -105,7 +97,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push release image
+      - name: Build and push official Morphit release image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -113,7 +105,7 @@ jobs:
           push: true
           platforms: linux/amd64,linux/arm64
           build-args: |
-            MORPHIT_VERSION=${{ needs.check.outputs.tag }}
+            MORPHIT_TAG=${{ needs.check.outputs.tag }}
           tags: |
             ${{ env.IMAGE_NAME }}:${{ needs.check.outputs.tag }}
             ${{ env.IMAGE_NAME }}:latest
@@ -126,6 +118,8 @@ jobs:
             echo "### Morphit image published"
             echo ""
             echo "- Release: \`${{ needs.check.outputs.tag }}\`"
+            echo "- Official source: \`https://git.agorise.net/agorise/morphit\`"
+            echo "- Source download and SHA-256 verification happened inside the Docker build"
             echo "- Image: \`${IMAGE_NAME}:${{ needs.check.outputs.tag }}\`"
             echo "- Also tagged: \`${IMAGE_NAME}:latest\`"
             echo "- Platforms: \`linux/amd64\`, \`linux/arm64\`"
