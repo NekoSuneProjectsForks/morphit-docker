@@ -4,6 +4,28 @@ Unofficial multi-architecture Docker wrapper for [Agorise Morphit](https://git.a
 
 This repository does **not** mirror Morphit's `main` branch and does not rebuild on every upstream commit. It follows published Morphit releases only.
 
+## Official upstream source
+
+The Dockerfile itself downloads Morphit from the official Agorise Forgejo repository. It does **not** depend on a copied or mirrored Morphit source tree stored in this GitHub repository.
+
+During `docker build`, the `morphit-source` stage runs `scripts/fetch-release.py`, which talks to:
+
+```text
+https://git.agorise.net/api/v1/repos/agorise/morphit
+```
+
+The source stage:
+
+1. resolves the requested published Morphit release,
+2. downloads the official release `.tar.gz` asset from Agorise,
+3. downloads the matching official `.sha256` asset,
+4. verifies the archive SHA-256,
+5. safely extracts the release into `/morphit`,
+6. copies that verified official source into the Node build stage,
+7. runs `npm ci` and Morphit's workspace build commands.
+
+The final image retains the upstream source under `/app` and records the resolved release in `/app/.morphit-release`.
+
 ## Image
 
 The workflow publishes one reusable image:
@@ -62,57 +84,57 @@ For the complete Cloudflare and Nginx Proxy Manager setup, including DNS, TLS, p
 
 ## Release-only update policy
 
-`.github/workflows/upstream-release.yml` checks Forgejo every 6 hours and can also be run manually from the Actions tab.
+`.github/workflows/upstream-release.yml` checks the official Agorise Forgejo releases every 6 hours and can also be run manually from the Actions tab.
 
 The workflow:
 
-1. asks the Forgejo API for the newest published Morphit release (drafts are ignored; prereleases count as releases),
+1. asks the official Forgejo API for the newest published Morphit release (drafts are ignored; prereleases count as releases),
 2. compares the tag with `.upstream-release`,
-3. exits before QEMU/npm/Docker setup when the tag is unchanged,
-4. when a release is new, downloads the canonical release `.tar.gz` and matching `.sha256` asset,
-5. verifies the SHA-256 before extracting anything,
-6. builds one Docker image for AMD64 + ARM64 and pushes both the upstream release tag and `latest`,
-7. records the tag in `.upstream-release` **only after** the image push succeeds.
+3. exits before QEMU/Docker build setup when the tag is unchanged,
+4. when a release is new, passes that exact tag into the Docker build as `MORPHIT_TAG`,
+5. the Dockerfile itself downloads and SHA-256 verifies that official Agorise release,
+6. Buildx builds one image for AMD64 + ARM64 and pushes both the upstream release tag and `latest`,
+7. the workflow records the tag in `.upstream-release` **only after** the image push succeeds.
 
 There is deliberately no `push` build trigger and no polling of upstream commits, so ordinary source commits do not create Docker images.
 
-## Fetch a release locally
+## Build locally
 
-Check the latest upstream release without downloading it:
-
-```bash
-python3 scripts/fetch-release.py --latest-tag
-```
-
-Download and verify the latest release into `upstream/`:
-
-```bash
-python3 scripts/fetch-release.py --output upstream
-```
-
-Or fetch a particular release:
-
-```bash
-python3 scripts/fetch-release.py --tag v1.2.3 --output upstream
-```
-
-Then build for the machine you are currently on:
+Build the latest published official Morphit release for your current architecture:
 
 ```bash
 docker build -t morphit:local .
 ```
 
-For a local multi-platform build with Buildx:
+The Dockerfile defaults `MORPHIT_TAG` to `latest`, resolves the newest published release from Agorise, downloads it and verifies it inside the build.
+
+Build a specific upstream release instead:
+
+```bash
+docker build \
+  --build-arg MORPHIT_TAG=v1.2.3 \
+  -t morphit:v1.2.3 \
+  .
+```
+
+For a multi-platform build:
 
 ```bash
 docker buildx build \
   --platform linux/amd64,linux/arm64 \
-  -t your-registry/morphit:tag \
+  --build-arg MORPHIT_TAG=v1.2.3 \
+  -t your-registry/morphit:v1.2.3 \
   --push .
+```
+
+You can still use the helper directly to inspect upstream without building an image:
+
+```bash
+python3 scripts/fetch-release.py --latest-tag
 ```
 
 ## Upstream provenance
 
-Morphit source, release artifacts, and its AGPL-3.0 license remain owned/licensed by the upstream project and contributors. The Docker image keeps the upstream source tree and license under `/app`.
+Morphit source, release artifacts, and its AGPL-3.0 license remain owned/licensed by the upstream project and contributors. The Docker image keeps the verified upstream release source tree and license under `/app`.
 
 Upstream repository: https://git.agorise.net/agorise/morphit
