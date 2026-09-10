@@ -37,6 +37,29 @@ docker run --rm -it ghcr.io/nekosuneprojectsforks/morphit:latest ops
 
 `indexer`, `relay`, and the operator tooling still need the database, secrets, environment variables, and persistent paths documented by upstream Morphit. This wrapper intentionally does not invent replacement defaults for those security-sensitive settings.
 
+## Docker Compose
+
+A production-oriented Compose file is included for the Morphit web frontend behind Nginx Proxy Manager:
+
+```bash
+cp .env.example .env
+```
+
+Set `NPM_NETWORK` in `.env` to a Docker network already attached to your Nginx Proxy Manager container, then run:
+
+```bash
+docker compose pull
+docker compose up -d
+```
+
+The Compose deployment deliberately does **not** publish Morphit's port `8080` on the Docker host. Nginx Proxy Manager reaches the `morphit` network alias directly over the shared Docker network.
+
+The Compose service also runs read-only with dropped Linux capabilities, `no-new-privileges`, a temporary `/tmp`, and a built-in health check.
+
+For the complete Cloudflare and Nginx Proxy Manager setup, including DNS, TLS, proxy-host settings, Full (strict) mode, firewall guidance, and troubleshooting, see:
+
+**[docs/CLOUDFLARE-NPM.md](docs/CLOUDFLARE-NPM.md)**
+
 ## Release-only update policy
 
 `.github/workflows/upstream-release.yml` checks Forgejo every 6 hours and can also be run manually from the Actions tab.
