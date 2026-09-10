@@ -1,0 +1,13 @@
+.git
+.github
+
+upstream/.git
+upstream/**/.git
+upstream/node_modules
+upstream/**/node_modules
+upstream/**/.svelte-kit
+upstream/**/coverage
+
+*.tar.gz
+*.sha256
+.DS_Store
